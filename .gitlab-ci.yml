@@ -1,0 +1,40 @@
+stages:
+  - test
+  - build
+  - scan
+  - push
+
+variables:
+  IMAGE: registry.gitlab.com/$CI_PROJECT_PATH:$CI_COMMIT_SHA
+
+test:
+  stage: test
+  image: python:3.11
+  script:
+    - pip install -r requirements.txt
+    - pytest
+
+build:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker build -t $IMAGE .
+    - docker save $IMAGE -o image.tar
+  artifacts:
+    paths:
+      - image.tar
+
+scan:
+  stage: scan
+  image: aquasec/trivy
+  script:
+    - trivy image --severity HIGH,CRITICAL $IMAGE
+
+push:
+  stage: push
+  script:
+    - docker push $IMAGE
+  only:
+    - main
